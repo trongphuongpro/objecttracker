@@ -17,7 +17,7 @@ private:
 	int maxDistance;
 	
 	std::map<int, cv::Point> objects;
-	std::map<int, bool> state;
+	std::map<int, bool> states;
 	std::map<int, int> disappeared;
 	std::vect<cv::Ptr<TrackerKCF>> trackers;
 
