@@ -7,14 +7,14 @@ using namespace std;
 using namespace cv;
 
 
-ObjectTracker::ObjectTracker() {
+ObjectTracker::ObjectTracker(int _maxFrame) {
 	nextID = 0;
-	maxDisappeared = 30;
+	maxDisappeared = _maxFrame;
 	maxDistance = 50;
 }
 
 
-void ObjectTracker::registerObj(const Mat& frame, const Rect2d& roi, bool state) {
+void ObjectTracker::registerObject(const Mat& frame, const Rect2d& roi, bool state) {
 	cout << "Register new object...";
 
 	Point p(roi.x + roi.width/2, roi.y + roi.height/2);
@@ -32,7 +32,7 @@ void ObjectTracker::registerObj(const Mat& frame, const Rect2d& roi, bool state)
 }
 
 
-void ObjectTracker::deregister(int ID) {
+void ObjectTracker::deregisterObject(int ID) {
 	cout << "Deregister object " << ID << endl;
 
 	trackers[ID].release();
@@ -70,7 +70,7 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 		for (auto& e : disappeared) {
 			e.second++;
 			if (e.second > maxDisappeared) {
-				deregister(e.first);
+				deregisterObject(e.first);
 			}
 		}
 
@@ -81,7 +81,7 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 
 	if (objects.empty()) {
 		for (const auto& e : boxes) {
-			registerObj(frame, e, false);
+			registerObject(frame, e, false);
 		}
 	}
 	else {
@@ -189,25 +189,24 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 		printSet(unusedRows, "unusedRows");
 		printSet(unusedCols, "unusedCols");
 
-		//if (D.size().height >= D.size().width) {
-			// some objects disappeared
-			for (const auto& row : unusedRows) {
-				int ID = objectIDs[row];
-				disappeared[ID]++;
+		
+		// some objects disappeared
+		for (const auto& row : unusedRows) {
+			int ID = objectIDs[row];
+			disappeared[ID]++;
 
-				if (disappeared[ID] > maxDisappeared) {
-					deregister(ID);
-				}
-			}
-		//}
-		//else {
-			// some new objects will be registered
-		if (!useTracker) {
-			for (const auto& col : unusedCols) {
-				registerObj(frame, boxes[col], false);
+			if (disappeared[ID] > maxDisappeared) {
+				deregisterObject(ID);
 			}
 		}
-		//}
+	
+		// some new objects will be registered
+		if (!useTracker) {
+			for (const auto& col : unusedCols) {
+				registerObject(frame, boxes[col], false);
+			}
+		}
+		
 	}
 
 	return boxes;
@@ -223,7 +222,9 @@ map<int, bool> ObjectTracker::getStates() {
 	return states;
 }
 
-
+void ObjectTracker::setState(int ID, bool value) {
+	states.at(ID) = value;
+}
 
 
 template<typename T>

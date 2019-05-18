@@ -10,7 +10,7 @@
 
 class ObjectTracker {
 public:
-	ObjectTracker();
+	ObjectTracker(int = 30);
 	std::vector<cv::Rect> update(const cv::Mat&, 
 				bool = true,
 				std::vector<cv::Rect> = std::vector<cv::Rect>());
@@ -18,6 +18,7 @@ public:
 	std::map<int, cv::Point> getCentroids();
 
 	std::map<int, bool> getStates();
+	void setState(int, bool);
 
 	void showInfo();
 	
@@ -31,8 +32,8 @@ private:
 	std::map<int, int> disappeared;
 	std::map<int, cv::Ptr<cv::Tracker>> trackers;
 
-	void registerObj(const cv::Mat&, const cv::Rect2d&, bool);
-	void deregister(int);
+	void registerObject(const cv::Mat&, const cv::Rect2d&, bool);
+	void deregisterObject(int);
 };
 
 cv::Mat cdist(const std::vector<cv::Point>&, const std::vector<cv::Point>&);
