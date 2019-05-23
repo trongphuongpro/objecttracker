@@ -32,7 +32,9 @@ private:
 	std::map<int, int> disappeared;
 	std::map<int, cv::Ptr<cv::Tracker>> trackers;
 
-	void registerObject(const cv::Mat&, const cv::Rect2d&, bool);
+	void addTracker(const cv::Mat&, const cv::Rect&, int);
+	void removeTracker(int);
+	void registerObject(const cv::Mat&, const cv::Rect&, bool);
 	void deregisterObject(int);
 };
 

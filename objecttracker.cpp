@@ -1,7 +1,6 @@
 #include "objecttracker.h"
 #include <iostream>
 #include <algorithm>
-#include <set>
 
 using namespace std;
 using namespace cv;
@@ -10,49 +9,79 @@ using namespace cv;
 ObjectTracker::ObjectTracker(int _maxFrame) {
 	nextID = 0;
 	maxDisappeared = _maxFrame;
-	maxDistance = 50;
+	maxDistance = 100;
 }
 
 
-void ObjectTracker::registerObject(const Mat& frame, const Rect2d& roi, bool state) {
-	cout << "Register new object...";
+void ObjectTracker::addTracker(const Mat& frame, const Rect& roi, int ID) {
+	Ptr<TrackerKCF> tracker = TrackerKCF::create();
+	bool ret = tracker->init(frame, roi);
+
+	if (ret) {
+		#ifdef DEBUG	
+		cout << ">> Init successfully" << endl;
+		#endif
+	}
+	
+	trackers[ID] = tracker;
+}
+
+
+void ObjectTracker::removeTracker(int ID) {
+	trackers[ID].release();
+
+	#ifdef DEBUG
+		if (trackers[ID].empty()) {
+			cout << ">> Tracker has been deallocated." << endl;
+		}
+	#endif
+}
+
+
+void ObjectTracker::registerObject(const Mat& frame, const Rect& roi, bool state) {
+	#ifdef DEBUG
+		cout << "Register new object...";
+		cout << "ID: " << nextID << endl;
+	#endif
 
 	Point p(roi.x + roi.width/2, roi.y + roi.height/2);
 	objects[nextID] = p;
-
 	states[nextID] = state;
 
-	Ptr<TrackerKCF> tracker = TrackerKCF::create();
-	tracker->init(frame, roi);
-	trackers[nextID] = tracker;
+	addTracker(frame, roi, nextID);
 
 	disappeared[nextID] = 0;
 	nextID++;
-	cout << "[Done]" << endl;
+
+	#ifdef DEBUG
+		cout << "[Done]" << endl;
+	#endif
 }
 
 
 void ObjectTracker::deregisterObject(int ID) {
-	cout << "Deregister object " << ID << endl;
+	#ifdef DEBUG
+		cout << "Deregister object ID: " << ID << endl;
+	#endif
 
-	trackers[ID].release();
-	if (trackers[ID].empty()) {
-		cout << ">> Tracker has been deallocated." << endl;
-	}
-
+	removeTracker(ID);
 	trackers.erase(ID);
 	objects.erase(ID);
 	states.erase(ID);
 	disappeared.erase(ID);
 	
-	cout << "[Done]" << endl;
+	#ifdef DEBUG
+		cout << "[Done]" << endl;
+	#endif
 }
 
 
 vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rect> boxes) {
 	// if use bounding boxes from trackers
 	if (useTracker) {
-		cout << "[Use tracker estimation]" << endl;
+		#ifdef DEBUG
+			cout << "[Use tracker estimation]" << endl;
+		#endif
 
 		for (const auto& e : trackers) {
 			Rect2d roi;
@@ -66,7 +95,10 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 
 	// if there is no bounding box
 	if (boxes.empty()) {
-		cout << "Nothing detected" << endl;
+		#ifdef DEBUG
+			cout << "Nothing detected" << endl;
+		#endif
+
 		for (auto& e : disappeared) {
 			e.second++;
 			if (e.second > maxDisappeared) {
@@ -77,7 +109,9 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 		return vector<Rect>();
 	}
 
-	cout << "Boxes: " << boxes.size() << endl;
+	#ifdef DEBUG 
+		cout << "Boxes: " << boxes.size() << endl;
+	#endif
 
 	if (objects.empty()) {
 		for (const auto& e : boxes) {
@@ -99,8 +133,10 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 			objectCentroids.push_back(e.second);
 		}
 
-		printBox(objectCentroids, "objectCentroids");
-		printBox(inputCentroids, "inputCentroids");
+		#ifdef DEBUG
+			printBox(objectCentroids, "objectCentroids");
+			printBox(inputCentroids, "inputCentroids");
+		#endif
 
 		Mat D = cdist(objectCentroids, inputCentroids);
 
@@ -113,8 +149,8 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 			vector<size_t> col;
 			
 			for (int j = 0; j < D.size().width; j++) {
-				row.push_back(D.at<uint16_t>(i, j));
-				col.push_back(D.at<uint16_t>(i, j));
+				row.push_back(D.at<int32_t>(i, j));
+				col.push_back(D.at<int32_t>(i, j));
 			}
 
 			sort(row.begin(), row.end());
@@ -128,8 +164,10 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 			cols.push_back(temp[rows[i]]);
 		}
 
-		printVector(rows, "rows");
-		printVector(cols, "cols");
+		#ifdef DEBUG
+			printVector(rows, "rows");
+			printVector(cols, "cols");
+		#endif
 
 		vector<vector<int>> coord;
 		for (size_t i = 0; i < rows.size(); i++) {
@@ -146,31 +184,40 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 			size_t row = e[0];
 			size_t col = e[1];
 
-			cout << endl << "row: " << row << " col: " << col << " ";
+			#ifdef DEBUG
+				cout << endl << "row: " << row << " col: " << col << " ";
+			#endif
 
 			if ((usedRows.find(row) != usedRows.end()) 
 				|| (usedCols.find(col) != usedCols.end())) {
 
-				cout << ">> used" << endl;
+				#ifdef DEBUG
+					cout << ">> used" << endl;
+				#endif
+
 				continue;
 			}
 
-			cout << ">> unused" << endl;
-
 			int ID = objectIDs[row];
-			if (D.at<uint16_t>(row, col) < maxDistance*maxDistance) {
-				cout << ">> add to used list" << endl;
+			if (D.at<int32_t>(row, col) < maxDistance*maxDistance) {
 				objects[ID] = inputCentroids[col];
 				disappeared[ID] = 0;
-				trackers[ID]->init(frame, boxes[col]);
+
+				if (!useTracker) {
+					removeTracker(ID);
+
+					addTracker(frame, boxes[col], ID);
+				}
 
 				usedRows.insert(row);
 				usedCols.insert(col);
 			}
 		}
 
-		printSet(usedRows, "usedRows");
-		printSet(usedCols, "usedCols");
+		#ifdef DEBUG
+			printSet(usedRows, "usedRows");
+			printSet(usedCols, "usedCols");
+		#endif
 
 		set<size_t> unusedRows;
 		for (int i = 0; i < D.size().height; i++) {
@@ -186,9 +233,10 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 			}
 		}
 
-		printSet(unusedRows, "unusedRows");
-		printSet(unusedCols, "unusedCols");
-
+		#ifdef DEBUG
+			printSet(unusedRows, "unusedRows");
+			printSet(unusedCols, "unusedCols");
+		#endif
 		
 		// some objects disappeared
 		for (const auto& row : unusedRows) {
@@ -250,11 +298,11 @@ size_t argmin(const vector<T>& input) {
 
 
 Mat cdist(const vector<Point>& A, const vector<Point>& B) {
-	Mat result(A.size(), B.size(), CV_16UC1);
+	Mat result(A.size(), B.size(), CV_32SC1);
 
 	for (size_t r = 0; r < A.size(); r++) {
 		for (size_t c = 0; c < B.size(); c++) {
-			result.at<uint16_t>(r, c) = (A[r].x - B[c].x)*(A[r].x - B[c].x)
+			result.at<uint32_t>(r, c) = (A[r].x - B[c].x)*(A[r].x - B[c].x)
 									  + (A[r].y - B[c].y)*(A[r].y - B[c].y);
 		}
 	}
@@ -262,47 +310,9 @@ Mat cdist(const vector<Point>& A, const vector<Point>& B) {
 }
 
 
-void test(const vector<Point>& A, const vector<Point>& B) {
-	Mat D = cdist(A, B);
-	cout << D << endl;
-
-	vector<size_t> rows;
-	vector<size_t> cols;
-	vector<size_t> temp;
-	for (int i = 0; i < D.size().height; i++) {
-			
-		vector<size_t> row;
-		vector<size_t> col;
-		
-		for (int j = 0; j < D.size().width; j++) {
-			row.push_back(D.at<uint16_t>(i, j));
-			col.push_back(D.at<uint16_t>(i, j));
-		}
-
-		sort(row.begin(), row.end());
-		rows.push_back(row[0]);
-		temp.push_back(argmin(col));
-	}
-
-	rows = argsort(rows);
-
-	for (size_t i = 0; i < rows.size(); i++) {
-		cols.push_back(temp[rows[i]]);
-	}
-
-	cout << endl << "rows:";
-	for (const auto& e : rows)
-		cout << e << " ";
-	cout << endl << "cols:";
-	for (const auto& e : cols)
-		cout << e << " ";
-	cout << endl;
-}
-
-
 void ObjectTracker::showInfo() {
-	cout << "Tracker: " << trackers.size() << endl;
-	cout << "objects: " << objects.size() << endl;
+	cout << "#Trackers: " << trackers.size() << endl;
+	cout << "#Objects: " << objects.size() << endl;
 	cout << "------------------------------------------" << endl;
 }
 
@@ -315,6 +325,7 @@ void printSet(const set<size_t>& v, const string& name) {
 	cout << endl;
 }
 
+
 void printVector(const vector<size_t>& v, const string& name) {
 	cout << name << ": ";
 	for (const auto& e : v) {
@@ -322,6 +333,7 @@ void printVector(const vector<size_t>& v, const string& name) {
 	}
 	cout << endl;
 }
+
 
 void printBox(const vector<Point>& v, const string& name) {
 	cout << name << ": ";
