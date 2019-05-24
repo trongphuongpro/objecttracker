@@ -3,6 +3,7 @@
 - used for object tracking and counting;
 ### Dependencies:
 - OpenCV 3.3+
+- opencv_contrib
 ### Usage:
 - constructor: **ObjectTracker**(*int* maxFrame = 30) - Create a tracker that will be removed if object disappears 
 in 30 consecutive frames (default).
