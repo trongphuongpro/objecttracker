@@ -76,24 +76,45 @@ void ObjectTracker::deregisterObject(int ID) {
 }
 
 
-vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rect> boxes) {
-	// if use bounding boxes from trackers
-	if (useTracker) {
-		#ifdef DEBUG
+void ObjectTracker::update(const Mat& frame, vector<Rect>& boxes) {
+
+	#ifdef DEBUG 
+		cout << "Boxes: " << boxes.size() << endl;
+	#endif
+
+	updateCentroids(frame, boxes, false);
+}
+
+
+vector<Rect> ObjectTracker::update(const Mat& frame) {
+	#ifdef DEBUG
 			cout << "[Use tracker estimation]" << endl;
-		#endif
+	#endif
 
-		for (const auto& e : trackers) {
-			Rect2d roi;
-			bool ret = e.second->update(frame, roi);
+	vector<Rect> boxes;
 
-			if (ret) {
+	for (const auto& e : trackers) {
+		Rect2d roi;
+		bool ret = e.second->update(frame, roi);
+
+		if (ret) {
 				boxes.push_back(roi);
-			}
-		} 
+		}
 	}
 
-	// if there is no bounding box
+	#ifdef DEBUG 
+		cout << "Boxes: " << boxes.size() << endl;
+	#endif
+
+	updateCentroids(frame, boxes, true);
+
+	return boxes;
+}	
+
+
+
+void ObjectTracker::updateCentroids(const Mat& frame, vector<Rect>& boxes, bool useTracker) {
+
 	if (boxes.empty()) {
 		#ifdef DEBUG
 			cout << "Nothing detected" << endl;
@@ -105,15 +126,9 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 				deregisterObject(e.first);
 			}
 		}
-
-		return vector<Rect>();
 	}
 
-	#ifdef DEBUG 
-		cout << "Boxes: " << boxes.size() << endl;
-	#endif
-
-	if (objects.empty()) {
+	else if (objects.empty()) {
 		for (const auto& e : boxes) {
 			registerObject(frame, e, false);
 		}
@@ -254,11 +269,9 @@ vector<Rect> ObjectTracker::update(const Mat& frame, bool useTracker, vector<Rec
 				registerObject(frame, boxes[col], false);
 			}
 		}
-		
 	}
-
-	return boxes;
 }
+
 
 
 map<int, Point> ObjectTracker::getCentroids() {

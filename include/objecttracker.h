@@ -8,12 +8,13 @@
 #include "opencv2/imgproc.hpp"
 #include "opencv2/tracking/tracker.hpp"
 
+
 class ObjectTracker {
 public:
 	ObjectTracker(int = 30);
-	std::vector<cv::Rect> update(const cv::Mat&, 
-				bool = true,
-				std::vector<cv::Rect> = std::vector<cv::Rect>());
+	void update(const cv::Mat&,
+				std::vector<cv::Rect>&);
+	std::vector<cv::Rect> update(const cv::Mat&);
 
 	std::map<int, cv::Point> getCentroids();
 
@@ -36,6 +37,7 @@ private:
 	void removeTracker(int);
 	void registerObject(const cv::Mat&, const cv::Rect&, bool);
 	void deregisterObject(int);
+	void updateCentroids(const cv::Mat& frame, std::vector<cv::Rect>&, bool);
 };
 
 cv::Mat cdist(const std::vector<cv::Point>&, const std::vector<cv::Point>&);
